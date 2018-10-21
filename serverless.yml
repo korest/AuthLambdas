@@ -1,0 +1,178 @@
+service: AuthLambdas
+
+provider:
+  name: aws
+  runtime: go1.x
+
+  stage: dev
+  region: us-west-2
+  memorySize: 128
+
+custom:
+  signingKey: "my signing key"
+  emailIndexName: "EmailIndex"
+
+package:
+  exclude:
+  - ./**
+  include:
+  - ./bin/**
+
+functions:
+  Authentication:
+    handler: bin/authentication
+    events:
+    - http:
+        path: /auth/get-token
+        method: post
+        cors: true
+    role: DefaultLambdaRole
+    environment:
+      region: ${self:provider.region}
+      accountsTableName:
+        Ref: AccountsTable
+      emailIndexName: ${self:custom.emailIndexName}
+      kmsKey:
+        Fn::GetAtt:
+        - DefaultKMSKey
+        - Arn
+      signingKey: ${self:custom.signingKey}
+
+  Authorization:
+    handler: bin/authorization
+    environment:
+      signingKey: ${self:custom.signingKey}
+
+  Registration:
+    handler: bin/registration
+    events:
+    - http:
+        path: /register
+        method: post
+        cors: true
+    role: DefaultLambdaRole
+    environment:
+      region: ${self:provider.region}
+      accountsTableName:
+        Ref: AccountsTable
+      emailIndexName: ${self:custom.emailIndexName}
+      kmsKey:
+        Fn::GetAtt:
+        - DefaultKMSKey
+        - Arn
+
+resources:
+  Resources:
+    AccountsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Accounts
+        AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+        KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: email
+          KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+        - IndexName: ${self:custom.emailIndexName}
+          KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+
+    # should only be used for dev environment as it allows all actions to all resources
+    DefaultKMSKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description:
+          Fn::Sub: "Default KMS key"
+        KeyPolicy:
+          Version: "2012-10-17"
+          Id: "default-kms-key"
+          Statement:
+          - Sid: Allow account-level IAM policies to apply to the key
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                - ""
+                - - "arn:aws:iam::"
+                  - Ref: AWS::AccountId
+                  - ":root"
+            Action: "kms:*"
+            Resource: "*"
+
+    DefaultKMSKeyAlias:
+      Type: AWS::KMS::Alias
+      Properties:
+        AliasName: "alias/DefaultKMSKey"
+        TargetKeyId:
+          Ref: DefaultKMSKey
+
+    DefaultLambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: DefaultLambdaRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action: sts:AssumeRole
+        Policies:
+        - PolicyName: MyDefaultPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action:
+              - dynamodb:Query
+              - dynamodb:PutItem
+              Resource:
+                Fn::GetAtt:
+                - AccountsTable
+                - Arn
+            - Effect: Allow
+              Action:
+              - dynamodb:Query
+              Resource:
+                Fn::Join:
+                - "/"
+                - - Fn::GetAtt:
+                    - AccountsTable
+                    - Arn
+                  - "index"
+                  - "*"
+            - Effect: Allow
+              Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              Resource:
+                Fn::GetAtt:
+                - DefaultKMSKey
+                - Arn
+            - Effect: Allow
+              Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              Resource:
+                Fn::Join:
+                - ":"
+                - - "arn:aws:logs"
+                  - Ref: AWS::Region
+                  - Ref: AWS::AccountId
+                  - "log-group:/aws/lambda/*:*:*"
