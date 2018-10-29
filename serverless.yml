@@ -1,4 +1,4 @@
-service: AuthLambdas
+service: WaitlistAppAuthLambdas
 
 provider:
   name: aws
