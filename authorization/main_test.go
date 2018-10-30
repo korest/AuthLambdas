@@ -21,3 +21,12 @@ func TestHandleRequestValidToken(t *testing.T) {
 	assert.Equal(t, ALLOW, response.PolicyDocument.Statement[0].Effect)
 	assert.Equal(t, "AccountId", response.PrincipalID)
 }
+
+func TestHandleRequestInvalidToken(t *testing.T) {
+	_, err := HandleRequest(nil, events.APIGatewayCustomAuthorizerRequest{
+		AuthorizationToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Mzg0MzYwNjYxMTUsImlzcyI6Ik15SXNzdWVyIiwic3ViIjoiQWNjb3VudElkIn0.Em7K73Gfr2YfB3heEk2ugxty24-GAjMRUgxgun3ORKE",
+		MethodArn:          "MethodArn",
+	})
+
+	assert.NotNil(t, err)
+}

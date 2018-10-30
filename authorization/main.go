@@ -16,6 +16,7 @@ const (
 	// env variables
 	SIGNING_KEY = "signingKey"
 	ALLOW       = "allow"
+	BEARER      = "Bearer "
 )
 
 func createPolicy(accountId, effect, resource string) events.APIGatewayCustomAuthorizerResponse {
@@ -34,10 +35,19 @@ func createPolicy(accountId, effect, resource string) events.APIGatewayCustomAut
 	}
 }
 
+func errorResponse(err error) (events.APIGatewayCustomAuthorizerResponse, error) {
+	log.Println("token invalid: ", err.Error())
+	return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
+}
+
 func HandleRequest(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
 	log.Println("token received: ", event.AuthorizationToken)
 
-	tokenStr := strings.TrimPrefix(event.AuthorizationToken, "Bearer ")
+	if !strings.HasPrefix(event.AuthorizationToken, BEARER) {
+		return errorResponse(errors.New("invalid token prefix"))
+	}
+
+	tokenStr := strings.TrimPrefix(event.AuthorizationToken, BEARER)
 
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
@@ -49,20 +59,21 @@ func HandleRequest(ctx context.Context, event events.APIGatewayCustomAuthorizerR
 		return signingKey, nil
 	})
 
-	if err == nil {
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			log.Println("token claims: ", claims)
-			accountId := claims["sub"].(string)
-			err = claims.Valid()
-			if err == nil {
-				return createPolicy(accountId, ALLOW, event.MethodArn), nil
-			}
-		}
+	if err != nil {
+		return errorResponse(err)
 	}
 
-	log.Println("token invalid: ", err.Error())
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		log.Println("token claims: ", claims)
+		accountId := claims["sub"].(string)
+		if claimsErr := claims.Valid(); claimsErr != nil {
+			return errorResponse(claimsErr)
+		}
 
-	return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
+		return createPolicy(accountId, ALLOW, event.MethodArn), nil
+	} else {
+		return errorResponse(errors.New("invalid token claims"))
+	}
 }
 
 func main() {
