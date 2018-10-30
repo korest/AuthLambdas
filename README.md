@@ -1,4 +1,4 @@
-Serverless in action. [Part 1: Auth]()
+[Serverless in action. Part 1: Auth](https://orestkyrylchuk.com/serverless-in-action-part-1)
 ----
 Auth:
 * Authentication - to generate JWT token for the user with valid credentials.
