@@ -28,7 +28,7 @@ func createPolicy(accountId, effect, resource string) events.APIGatewayCustomAut
 				{
 					Action:   []string{"execute-api:Invoke"},
 					Effect:   effect,
-					Resource: []string{resource},
+					Resource: []string{"*"},
 				},
 			},
 		},
@@ -70,7 +70,10 @@ func HandleRequest(ctx context.Context, event events.APIGatewayCustomAuthorizerR
 			return errorResponse(claimsErr)
 		}
 
-		return createPolicy(accountId, ALLOW, event.MethodArn), nil
+		policy := createPolicy(accountId, ALLOW, event.MethodArn)
+		log.Println(policy)
+
+		return policy, nil
 	} else {
 		return errorResponse(errors.New("invalid token claims"))
 	}
