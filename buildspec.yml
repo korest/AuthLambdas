@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+    - npm install --silent --progress=false -g npm
+    - npm install --silent --progress=false -g serverless
+    - npm install --silent --progress-false
+    - npm --version
+  build:
+    commands:
+    - make deploy
+  post_build:
+    commands:
+    - echo Build completed on `date`
