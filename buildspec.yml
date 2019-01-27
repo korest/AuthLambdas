@@ -1,5 +1,8 @@
 version: 0.2
 
+env:
+  variables:
+    CODEBUILD_SRC_DIR: src/github.com/korest/WaitlistAppAuthLambdas
 phases:
   install:
     commands:
