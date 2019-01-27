@@ -1,8 +1,5 @@
 version: 0.2
 
-env:
-  variables:
-    SRC_DIR: src/github.com/korest/WaitlistAppAuthLambdas
 phases:
   install:
     commands:
@@ -10,6 +7,12 @@ phases:
     - npm install --silent --progress=false -g serverless
     - npm install --silent --progress-false
     - npm --version
+  pre-build:
+    commands:
+    - mkdir -p ../github.com/korest/WaitlistAppAuthLambdas
+    - mv * ../github.com/korest/WaitlistAppAuthLambdas
+    - mv ../github.com .
+    - cd github.com/korest/WaitlistAppAuthLambdas
   build:
     commands:
     - make deploy
