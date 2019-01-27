@@ -7,7 +7,7 @@ phases:
     - npm install --silent --progress=false -g serverless
     - npm install --silent --progress-false
     - npm --version
-  pre-build:
+  pre_build:
     commands:
     - mkdir -p ../github.com/korest/WaitlistAppAuthLambdas
     - mv * ../github.com/korest/WaitlistAppAuthLambdas
